@@ -505,11 +505,12 @@ class Recipe(BaseSlapRecipe):
           destination=backup_path))
     self.path_list.append(backup_cron)
 
-    return dict(
+    self.ca_conf = dict(
       ca_certificate=os.path.join(config['ca_dir'], 'cacert.pem'),
       ca_crl=os.path.join(config['ca_dir'], 'crl'),
       certificate_authority_path=config['ca_dir']
     )
+    return self.ca_conf
 
   def installConversionServer(self, ip, port, openoffice_port):
     name = 'conversion_server'
@@ -788,6 +789,12 @@ class Recipe(BaseSlapRecipe):
       HOME=self.tmp_directory,
       PATH=self.bin_directory
     )
+    if getattr(self, ca_conf, None):
+      default_zope_environment['CA_PATH'] = \
+          self.ca_conf['certificate_authority_path']
+    if 'openssl_binary' in self.options:
+      default_zope_environment['OPENSSL_BINARY'] = \
+          self.options['openssl_binary']
     if zope_environment is None:
       zope_environment = default_zope_environment.copy()
     else:
