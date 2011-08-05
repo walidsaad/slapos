@@ -54,6 +54,7 @@ class Recipe(BaseSlapRecipe):
 
   def _install(self):
     self.path_list = []
+    self.key_auth_path = '/%s' % self.site_id
     self.requirements, self.ws = self.egg.working_set()
     # self.cron_d is a directory, where cron jobs can be registered
     self.cron_d = self.installCrond()
@@ -83,6 +84,10 @@ class Recipe(BaseSlapRecipe):
     apache_conf = dict(
          apache_login=self.installBackendApache(ip=self.getGlobalIPv6Address(),
          port=13000, backend=site_access, key=key, certificate=certificate))
+
+    apache_keyauth = self.installKeyAuthorisationApache(
+        self.getLocalIPv4Address(), 15500, site_access, key,
+        certificate, ca_conf, key_auth_path=self.key_auth_path)
 
     connection_dict = dict(site_url=apache_conf['apache_login'])
 
