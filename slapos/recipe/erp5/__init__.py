@@ -789,7 +789,7 @@ class Recipe(BaseSlapRecipe):
       HOME=self.tmp_directory,
       PATH=self.bin_directory
     )
-    if getattr(self, ca_conf, None):
+    if getattr(self, 'ca_conf', None):
       default_zope_environment['CA_PATH'] = \
           self.ca_conf['certificate_authority_path']
     if 'openssl_binary' in self.options:
