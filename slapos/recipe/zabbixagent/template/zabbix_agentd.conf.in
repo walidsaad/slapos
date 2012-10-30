@@ -238,4 +238,6 @@ UserParameter=custom_sensor.core3,sensors | grep "Core 3" | sed -e "s/.*  +//" |
 UserParameter=custom_sensor.fan1,sensors | grep "fan1" | sed -e "s/.*  //" | sed -e "s/ .*//"
 UserParameter=custom_sensor.fan2,sensors | grep "fan2" | sed -e "s/.*  //" | sed -e "s/ .*//"
 
+UserParameter=log.binary_cache,grep "zc.buildout.buildout.main()" -B 4 /opt/slapos/slapgrid-sr.log | grep "Installing software release"; mv /opt/slapos/slapgrid-sr.log /opt/slapos/slapgrid-sr$(date +%s).log
+
 %(user_parameter_string)s
