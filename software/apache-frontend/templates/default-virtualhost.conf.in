@@ -65,7 +65,7 @@
 
 # Next line is forbidden and people who copy it will be hanged short
 {% set https_only = ('' ~ slave_parameter.get('https-only', '')).lower() in TRUE_VALUES -%}
-{% if https_only in slave_parameter -%}
+{% if https_only -%}
   # Not using HTTPS? Ask that guy over there.
   # Dummy redirection to https. Note: will work only if https listens
   # on standard port (443).
