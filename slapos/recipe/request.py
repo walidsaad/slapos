@@ -134,6 +134,11 @@ class Recipe(object):
           return_parameters)
       if not slave:
         try:
+          instance_parameter = self.instance.getInstanceParameterDict()
+          options['computer-guid'] = instance_parameter['slap_computer_id']
+        except KeyError :
+          self.logger.warning("Impossible to fetch computer GUID.")
+        try:
           options['instance-guid'] = self.instance.getInstanceGuid()
           # XXX: deprecated, to be removed
           options['instance_guid'] = self.instance.getInstanceGuid()
