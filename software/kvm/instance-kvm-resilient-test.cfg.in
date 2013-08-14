@@ -21,15 +21,10 @@ scripts = $${:etc}/run/
 
 [deploy-resiliency-test]
 recipe = slapos.cookbook:wrapper
-#log-path = {directory:log}
 wrapper-path = $${directory:bin}/runKVMResiliencyTestSuite
-#output = $${binary-wrap-launcher:binary-path}
-#site-id = "{site_id}"
-# Suppose that there is a user zope family in the configuration
-#erp5-url = $${erp5-cluster:connection-family-user}{:site-id}
-#parameters-extra = $*
-command-line = ${buildout:bin-directory}/runKVMResiliencyTestSuite --server-url=$${slap-connection:server-url} --key-file=$${slap-connection:key-file} --cert-file=$${slap-connection:cert-file} --computer-id=$${slap-connection:computer-id} --partition-id=$${slap-connection:partition-id} --software=$${slap-connection:software-release-url} --namebase=kvm --kvm-rootinstance-name='$${request-resilient-kvm:name}'
-#return = url
+kvm-test-parameters = --server-url=$${slap-connection:server-url} --key-file=$${slap-connection:key-file} --cert-file=$${slap-connection:cert-file} --computer-id=$${slap-connection:computer-id} --partition-id=$${slap-connection:partition-id} --software=$${slap-connection:software-release-url} --namebase=kvm --kvm-rootinstance-name='$${request-resilient-kvm:name}'
+testnode-parameters = --test-result-path=$${slap-parameter:test-result-path} --revision=$${slap-parameter:test-suite-revision} --node-title=$${slap-parameter:node-title} --test-suite=$${slap-parameter:test-suite} --test-suite-master-url=$${slap-parameter:test-suite-master-url} --log-path=$${directory:log} 
+command-line = ${buildout:bin-directory}/runKVMResiliencyTestSuite $${:kvm-test-parameters} $${:testnode-parameters}
 
 [request-resilient-kvm]
 <= slap-connection
