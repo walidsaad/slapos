@@ -1,0 +1,8 @@
+[
+protocol = "http";
+src_url="REPLACE WITH USER REPOSITORY URL";
+dest_url="REPLACE WITH BONJOURGRID DATA REPOSITORY URL";
+err = "new.err";
+output = "new.out";
+dap_type = "transfer";
+]
