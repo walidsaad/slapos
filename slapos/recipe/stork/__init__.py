@@ -76,7 +76,6 @@ class Recipe(GenericBaseRecipe):
     self.ipv6 = options['ip'].strip()
     self.stork_host = options['stork_host'].strip()
     self.stork_port = options['stork_port'].strip()
-
   def install(self):
     path_list = []
     #get UID and GID for current slapuser
@@ -85,16 +84,22 @@ class Recipe(GenericBaseRecipe):
     domain_name = 'slapos%s.com' % stat_info.st_uid
 
 
-    #Generate stork_config file
+    #Generate stork_mabroukconfig file
     stork_config = os.path.join(self.rootdir, 'etc/stork_config')
     stork_configure = dict(stork_host=self.stork_host, releasedir=self.wrapper,
                   storkpackage=self.package,
                   slapuser=slapuser, ipv6=self.ipv6)
     destination = os.path.join(stork_config)
-    config = self.createFile(destination,
+    if self.options['stork_server']=='local':
+     config = self.createFile(destination,
       self.substituteTemplate(self.getTemplateFilename('stork_config.generic'),
       stork_configure))
-    path_list.append(config)
+     path_list.append(config)
+    else:
+     config = self.createFile(destination,
+      self.substituteTemplate(self.getTemplateFilename('remote_stork_config.generic'),
+      stork_configure))
+     path_list.append(config)
 
     #create stork binary launcher for slapos
     if not os.path.exists(self.wrapper_bin):
@@ -148,13 +153,13 @@ class Recipe(GenericBaseRecipe):
       os.chmod(wrapper_location, 0744)
 
     #generate script for start stork
-    start_stork = os.path.join(self.wrapperdir, 'start_stork')
-    start_bin = os.path.join(self.wrapper_sbin, 'stork_server')
-    wrapper = self.createPythonScript(start_stork,
+    if self.options['stork_server']=='local':
+     start_stork = os.path.join(self.wrapperdir, 'start_stork')
+     start_bin = os.path.join(self.wrapper_sbin, 'stork_server')
+     wrapper = self.createPythonScript(start_stork,
         '%s.configure.storkStart' % __name__,
-        dict(start_bin=start_bin,port=self.stork_port,configfile=self.rootdir+'/etc/stork_config')
-    )
-    path_list.append(wrapper)
+        dict(start_bin=start_bin,port=self.stork_port,configfile=self.rootdir+'/etc/stork_config'))
+     path_list.append(wrapper)
     return path_list
 
 class AppSubmit(GenericBaseRecipe):
@@ -237,13 +242,20 @@ class AppSubmit(GenericBaseRecipe):
           os.unlink(destination)
         os.symlink(app_list[appname]['files'][file], destination)
       #generate wrapper for submitting stork job
-      #self.stork_host = self.options['stork_host'].strip()
-      self.stork_host = self.options['ip'].strip()
+      #self.stork_host = self.options['ip'].strip()
+      if self.options['stork_server']!='local':
+       self.stork_host =self.options['stork_server']
+      else:
+       self.stork_host = self.options['ip'].strip()
       self.stork_port = self.options['stork_port'].strip()
       stork_submit = os.path.join(self.options['bin'].strip(), 'stork_submit')
         #change default SRC and DEST URLs by user URLs
       (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH USER REPOSITORY URL#'+self.options['src_url'].strip()+'#" '+datadir+'stork_test/submit-dap')
-      (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH BONJOURGRID DATA REPOSITORY URL#'+'file:'+datadir+''+self.options['data_package'].strip()+'#" '+datadir+'stork_test/submit-dap')
+      if self.options['dest_url']!='local':
+       (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH BONJOURGRID DATA REPOSITORY URL#'+self.options['dest_url'].strip()+'#" '+datadir+'stork_test/submit-dap')
+      else:
+       (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH BONJOURGRID DATA REPOSITORY URL#'+'file:'+datadir+''+self.options['data_package'].strip()+'#" '+datadir+'stork_test/submit-dap')
+
       parameter = dict(submit=stork_submit, sig_install=sig_install,
                       submit_file=submitfile,
                       stork_server=self.stork_host,
