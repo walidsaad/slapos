@@ -37,19 +37,47 @@ import commands
 
 class Recipe(GenericBaseRecipe):
   """Deploy a Bitdew Server."""
+  def __init__(self, buildout, name, options):
+    self.environ = {}
+    self.role = ''
+    environment_section = options.get('environment-section', '').strip()
+    if environment_section and environment_section in buildout:
+      # Use environment variables from the designated config section.
+      self.environ.update(buildout[environment_section])
+    for variable in options.get('environment', '').splitlines():
+      if variable.strip():
+        try:
+          key, value = variable.split('=', 1)
+          self.environ[key.strip()] = value
+        except ValueError:
+          raise zc.buildout.UserError('Invalid environment variable definition: %s', variable)
+    # Extrapolate the environment variables using values from the current
+    # environment.
+    for key in self.environ:
+      self.environ[key] = self.environ[key] % os.environ
+    return GenericBaseRecipe.__init__(self, buildout, name, options)
+    
   def install(self):
     path_list = []
-
+    #get UID and GID for current slapuser
+    stat_info = os.stat(self.options['rootdirectory'].strip())
+    slapuser = str(stat_info.st_uid)+"."+str(stat_info.st_gid)
+    #create bitdew binary launcher for slapos
+    if not os.path.exists(self.options['wrapper']):
+      os.makedirs(self.options['wrapper'], int('0744', 8))
+    
+    
+    
+    
     #generate script for start bitdew
-    bitdew_server = self.options['server_script'].strip()
-    python = self.options['python-bin'].strip()
+    
+    start_bitdew = os.path.join(self.options['wrapper-dir'], 'start_bitdew')
     jar_file = self.options['server-jar'].strip()
+    #jar_file = os.path.join(self.options['wrapper'], 'bitdew.jar')
     javabin=self.options['java-bin'].strip()
-    wrapper = self.createPythonScript(self.options['wrapper'],
-        'slapos.recipe.librecipe.execute.execute',
-        ([python, bitdew_server,jar_file,javabin,
-        ])
-    )
+    wrapper = self.createPythonScript(start_bitdew,
+        '%s.configure.BitdewStart' % __name__,
+        dict(jar_file=jar_file,java_bin=javabin,host=self.options['ip'].strip(),configfile=javabin+'/etc/proprietes.json',package=self.options['package'].strip()))
     path_list.append(wrapper)
     return path_list
     
@@ -62,33 +90,43 @@ class AppSubmit(GenericBaseRecipe):
     if not os.path.exists(self.options['data-dir']):
       os.makedirs(self.options['data-dir'], int('0744', 8))
     #generate wrapper for put input data into bitdew server cache
-    python = self.options['python-bin'].strip()
+    
+
     jar_file = self.options['server-jar'].strip()
+    #jar_file = os.path.join(self.options['wrapper'], 'bitdew.jar')
+    
     package = self.options['package'].strip()
     javabin=self.options['java-bin'].strip()
-    host=self.options['bitdew_host'].strip()
+    host=self.options['ip'].strip()
     protocol=self.options['protocol'].strip()
     datadir=self.options['data-dir'].strip()
-    promise_put = self.options['promise_put'].strip()
-    put_script=self.options['put_script'].strip()
+    
+    put_data=os.path.join(self.options['wrapper-dir'], 'share_data')
     file = self.options['file-name'].strip()
-    wrapperput = self.createPythonScript(promise_put,
-        'slapos.recipe.librecipe.execute.execute',
-        ([python,put_script,jar_file,javabin,host,protocol,file,datadir,package,
-        ])
-    )
+    parameter = dict(jar_file=jar_file, package=package,
+                      java_bin=javabin,
+                      host=host,
+                      protocol=protocol,
+                      file_name=file, data_dir=datadir)
+    wrapperput = self.createPythonScript(put_data,
+        '%s.configure.putData' % __name__, parameter
+      )
     path_list.append(wrapperput)
+    
     
     #generate wrapper for get input data from bitdew server cache
     (error,dataid)=commands.getstatusoutput('head '+datadir+'put.log'+' -n 1 | tail -1 | cut -f2 -d "[" | cut -f1 -d "]"')
-    get_script =self.options['get_script'].strip()
-    promise_get = self.options['promise_get'].strip()
+    get_data=os.path.join(self.options['wrapper-dir'], 'get_data')
     #id="fadr123443543"
-    wrapperget = self.createPythonScript(promise_get,
-        'slapos.recipe.librecipe.execute.execute',
-        ([python,get_script,jar_file,javabin,host,protocol,'input-copy.txt',dataid,datadir,package,
-        ])
-    )
-    
+    parameter = dict(jar_file=jar_file, package=package,
+                      java_bin=javabin,
+                      host=host,
+                      protocol=protocol,
+                      file_name='input-copy.txt',ID=dataid, data_dir=datadir)
+    wrapperget = self.createPythonScript(get_data,
+        '%s.configure.getData' % __name__, parameter
+      )
+  
     path_list.append(wrapperget)
     return path_list
+    
