@@ -70,15 +70,14 @@ class Recipe(GenericBaseRecipe):
     
     
     #generate script for start bitdew
-    
-    start_bitdew = os.path.join(self.options['wrapper-dir'], 'start_bitdew')
-    jar_file = self.options['server-jar'].strip()
-    #jar_file = os.path.join(self.options['wrapper'], 'bitdew.jar')
-    javabin=self.options['java-bin'].strip()
-    wrapper = self.createPythonScript(start_bitdew,
+    if self.options['machine-role']=='server':
+     start_bitdew = os.path.join(self.options['wrapper-dir'], 'start_bitdew')
+     jar_file = self.options['server-jar'].strip()
+     javabin=self.options['java-bin'].strip()
+     wrapper = self.createPythonScript(start_bitdew,
         '%s.configure.BitdewStart' % __name__,
-        dict(jar_file=jar_file,java_bin=javabin,host=self.options['ip'].strip(),configfile=javabin+'/etc/proprietes.json',package=self.options['package'].strip()))
-    path_list.append(wrapper)
+        dict(jar_file=jar_file,java_bin=javabin,host=self.options['bitdew_host'].strip(),configfile=javabin+'/etc/proprietes.json',package=self.options['package'].strip()))
+     path_list.append(wrapper)
     return path_list
     
 class AppSubmit(GenericBaseRecipe):
@@ -90,43 +89,39 @@ class AppSubmit(GenericBaseRecipe):
     if not os.path.exists(self.options['data-dir']):
       os.makedirs(self.options['data-dir'], int('0744', 8))
     #generate wrapper for put input data into bitdew server cache
-    
-
-    jar_file = self.options['server-jar'].strip()
-    #jar_file = os.path.join(self.options['wrapper'], 'bitdew.jar')
-    
     package = self.options['package'].strip()
     javabin=self.options['java-bin'].strip()
-    host=self.options['ip'].strip()
+    host=self.options['bitdew_host'].strip()
     protocol=self.options['protocol'].strip()
     datadir=self.options['data-dir'].strip()
-    
-    put_data=os.path.join(self.options['wrapper-dir'], 'share_data')
-    file = self.options['file-name'].strip()
-    parameter = dict(jar_file=jar_file, package=package,
+    jar_file = self.options['server-jar'].strip()
+    if self.options['machine-role']=='server': 
+     put_data=os.path.join(self.options['wrapper-dir'], 'share_data')
+     file = self.options['file-name'].strip()
+     parameter = dict(jar_file=jar_file, package=package,
                       java_bin=javabin,
                       host=host,
                       protocol=protocol,
                       file_name=file, data_dir=datadir)
-    wrapperput = self.createPythonScript(put_data,
+     wrapperput = self.createPythonScript(put_data,
         '%s.configure.putData' % __name__, parameter
       )
-    path_list.append(wrapperput)
+     path_list.append(wrapperput)
     
     
     #generate wrapper for get input data from bitdew server cache
-    (error,dataid)=commands.getstatusoutput('head '+datadir+'put.log'+' -n 1 | tail -1 | cut -f2 -d "[" | cut -f1 -d "]"')
-    get_data=os.path.join(self.options['wrapper-dir'], 'get_data')
-    #id="fadr123443543"
-    parameter = dict(jar_file=jar_file, package=package,
+    if self.options['machine-role']=='client':
+     get_data=os.path.join(self.options['wrapper-dir'], 'get_data')
+     dataid=self.options['data_id']
+     parameter = dict(jar_file=jar_file, package=package,
                       java_bin=javabin,
                       host=host,
                       protocol=protocol,
-                      file_name='input-copy.txt',ID=dataid, data_dir=datadir)
-    wrapperget = self.createPythonScript(get_data,
+                      file_name='input-copy.txt', data_dir=datadir,dataid=dataid)
+     wrapperget = self.createPythonScript(get_data,
         '%s.configure.getData' % __name__, parameter
       )
   
-    path_list.append(wrapperget)
+     path_list.append(wrapperget)
     return path_list
     
