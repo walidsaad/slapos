@@ -28,12 +28,13 @@
 import os
 import subprocess
 import time
+import datetime
 import sys
 import socket
+import commands
 def putData(args):
   print "USE : python put.py serverIP inputname"
   host =args['host']
-  #host ='196.203.126.15'
   protocol = args['protocol']
   file_name =args['file_name']
   bitdew=args['jar_file']
@@ -42,13 +43,17 @@ def putData(args):
   package=args['package']
   try:
     os.chdir(package)
-    #log=data_dir+'/put.log'
-    #cmd=java_bin+"/java -jar "+bitdew+" --help >>"+log
-    #os.system(cmd)
-    log=data_dir+'/put.log'
-    cmd=java_bin+"/java -cp bitdew.jar xtremweb.role.cmdline.CommandLineTool --protocol="+protocol+" --host="+host+" put "+file_name+" >>"+log
+    print 'BEGIN PUT',datetime.datetime.now();
+    os.environ['CLASSPATH'] =bitdew
+    print os.environ['CLASSPATH']
+    ########log=data_dir+'/put.log'
+    log='/tmp/put.log'
+    cmd=java_bin+"/java -cp "+bitdew+" xtremweb.role.cmdline.CommandLineTool --protocol="+protocol+" --host="+host+" put "+file_name+" >>"+log
+    cmd1="echo "+host+" >>/tmp/server"
+    os.system(cmd1)
+    time.sleep(20)
     os.system(cmd)
-    print 'OKKKKKKKKKKKKKKKK'
+    print 'END PUT',datetime.datetime.now();
     sys.exit(0)
   except Exception, e:
     print str(e)
@@ -62,33 +67,32 @@ def getData(args):
   java_bin=args['java_bin']
   data_dir=args['data_dir']
   package=args['package']
-  ID=args['ID']
-  
+  dataid=args['dataid']
+  print 'BEGIN GET',datetime.datetime.now();
   try:
-    os.chdir(package)
-    os.system('export CLASSPATH=bitdew.jar')
+    #os.chdir(package)
+    os.environ['CLASSPATH'] =bitdew
     log=data_dir+'/get.log'
-    cmd=java_bin+"/java -cp "+bitdew+" xtremweb.role.cmdline.CommandLineTool --protocol="+protocol+" --host="+host+" get "+ID+" "+file_name+" >>"+log
+    time.sleep(10)
+    #(error,dataid)=commands.getstatusoutput('head '+data_dir+'put.log'+' -n 1 | tail -1 | cut -f3 -d "[" | cut -f1 -d "]"')
+    cmd=java_bin+"/java -cp "+bitdew+" xtremweb.role.cmdline.CommandLineTool --protocol="+protocol+" --host="+host+" get "+dataid+" >>"+log
     os.system(cmd)
-    print 'OKKKKKKKKKKKKKKKK', host
+    print 'END GET', datetime.datetime.now();
     sys.exit(0)
   except Exception, e:
     print str(e)
     sys.exit(1)
 
 def BitdewStart(args):
-    """Start Bitdew Server """
+    print 'Start Bitdew Server',datetime.datetime.now();
     bitdew=args['jar_file']
-    #bitdew='bitdew-stand-alone-1.2.0.jar'
     java_bin=args['java_bin']
     host=args['host']
     package=args['package']
-    os.chdir(package)
-    os.system('export CLASSPATH=bitdew.jar')
-    #print(socket.gethostname()),'aaaaaaaaaaaaaaaaaaaaa'
-    cmd=java_bin+"/java -jar "+bitdew+" --host="+host+" serv dc dt dr ds >>server.log"
+    #os.chdir(package)
+    os.system('export CLASSPATH='+bitdew)
+    os.environ['CLASSPATH'] =bitdew
+    print os.environ['CLASSPATH']
+    cmd=java_bin+"/java -jar "+bitdew+" --host="+host+" serv dc dt dr ds"
     os.system(cmd)
-    os.system('export CLASSPATH=bitdew.jar')
-    
-    
-  
+    print 'END Bitdew Server',datetime.datetime.now();
