@@ -90,16 +90,19 @@ class Recipe(GenericBaseRecipe):
                   storkpackage=self.package,
                   slapuser=slapuser, ipv6=self.ipv6)
     destination = os.path.join(stork_config)
-    if self.options['stork_server']=='local':
+     # case 1: client and server in the same instance
+    if (self.options['machine-role'] == "client") and (self.options['stork_server']=='local'):
      config = self.createFile(destination,
       self.substituteTemplate(self.getTemplateFilename('stork_config.generic'),
       stork_configure))
      path_list.append(config)
+    #case 2: client and server in different instances (the server may b a remote host)
     else:
      config = self.createFile(destination,
       self.substituteTemplate(self.getTemplateFilename('remote_stork_config.generic'),
       stork_configure))
      path_list.append(config)
+
 
     #create stork binary launcher for slapos
     if not os.path.exists(self.wrapper_bin):
@@ -217,8 +220,11 @@ class AppSubmit(GenericBaseRecipe):
   def install(self):
     path_list = []
     #check if curent stork instance is an stork server
-    if self.options['machine-role'].strip() != "server":
-      raise Exception("Cannot submit a job to stork client instance")
+    if self.options['machine-role'].strip() == "server":
+      #raise Exception("Cannot submit a job to stork client instance")
+      print 'Cannot submit a job to stork client instance'
+      return path_list
+
 
     #Setup directory
     datadir = self.options['data-dir'].strip()
