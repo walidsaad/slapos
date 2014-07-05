@@ -3,11 +3,11 @@
 ##  stork_config
 ##
 ######################################################################
-ENABLE_IPV6 = TRUE
-PORT = 9621
-NETWORK_INTERFACE = %(ipv6)s
-COLLECTOR_HOST =  %(ipv6)s:$(PORT)
-CONDOR_HOST =  %(ipv6)s
+#ENABLE_IPV6 = TRUE
+PORT = %(port)s
+NETWORK_INTERFACE = %(ipv4)s
+COLLECTOR_HOST =  %(ipv4)s:$(PORT)
+CONDOR_HOST =  %(ipv4)s
 
 RELEASE_DIR             =  %(releasedir)s
 ##Stork startup arguments
@@ -21,7 +21,7 @@ ARGS = -p $(STORK_PORT) -f -Serverlog $(STORK_LOG_BASE)
 ## HOST may specify an optional default remote Stork server and port.
 #HOST  = %(stork_host)s:$(PORT)
 
-HOST  = %(ipv6)s:$(PORT)
+HOST  = %(ipv4)s:$(PORT)
 ## When Stork starts up, it can place its address (IP and port) into
 ## a file. This way, tools running on the local machine don't
 ## need an additional "-n host:port" command line option.  This
