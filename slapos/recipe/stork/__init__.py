@@ -26,14 +26,7 @@
 ##############################################################################
 from slapos.recipe.librecipe import GenericBaseRecipe
 import os
-import subprocess
-import zc.buildout
-import filecmp
-import urlparse
-import shutil
-import re
 import json
-import commands
 
 class Recipe(GenericBaseRecipe):
   """Deploy a fully operational condor architecture."""
@@ -67,13 +60,11 @@ class Recipe(GenericBaseRecipe):
     self.dash = options['dash'].strip()
     #Directory to deploy stork
     self.prefix = options['rootdirectory'].strip()
-    self.wrapperdir = options['wrapper-dir'].strip()
-    self.wrapper = options['local-dir'].strip()
     self.wrapper_bin = options['bin'].strip()
     self.wrapper_sbin = options['sbin'].strip()
     self.wrapper_log= options['log'].strip()
     self.wrapper_tmp= options['tmp'].strip()
-    self.ipv6 = options['ip'].strip()
+    self.ipv4 = options['ipv4'].strip()
     self.stork_host = options['stork_host'].strip()
     self.stork_port = options['stork_port'].strip()
   def install(self):
@@ -86,9 +77,10 @@ class Recipe(GenericBaseRecipe):
 
     #Generate stork_mabroukconfig file
     stork_config = os.path.join(self.rootdir, 'etc/stork_config')
-    stork_configure = dict(stork_host=self.stork_host, releasedir=self.wrapper,
+    stork_configure = dict(stork_host=self.stork_host, releasedir=self.prefix,
                   storkpackage=self.package,
-                  slapuser=slapuser, ipv6=self.ipv6)
+                  slapuser=slapuser, ipv4=self.ipv4,
+                  port=self.stork_port)
     destination = os.path.join(stork_config)
      # case 1: client and server in the same instance
     if (self.options['machine-role'] == "client") and (self.options['stork_server']=='local'):
@@ -106,13 +98,13 @@ class Recipe(GenericBaseRecipe):
 
     #create stork binary launcher for slapos
     if not os.path.exists(self.wrapper_bin):
-      os.makedirs(self.wrapper_bin, int('0744', 8))
+      os.makedirs(self.wrapper_bin, int('0700', 8))
     if not os.path.exists(self.wrapper_sbin):
-      os.makedirs(self.wrapper_sbin, int('0744', 8))
+      os.makedirs(self.wrapper_sbin, int('0700', 8))
     if not os.path.exists(self.wrapper_log):
-      os.makedirs(self.wrapper_log, int('0744', 8))
+      os.makedirs(self.wrapper_log, int('0700', 8))
     if not os.path.exists(self.wrapper_tmp):
-      os.makedirs(self.wrapper_tmp, int('0744', 8))
+      os.makedirs(self.wrapper_tmp, int('0700', 8))
     #generate script for each file in prefix/bin
     for binary in os.listdir(self.package+'/bin'):
       wrapper_location = os.path.join(self.wrapper_bin, binary)
@@ -132,7 +124,7 @@ class Recipe(GenericBaseRecipe):
       wrapper.write(content)
       wrapper.close()
       path_list.append(wrapper_location)
-      os.chmod(wrapper_location, 0744)
+      os.chmod(wrapper_location, 0700)
 
     #generate script for each file in prefix/sbin
     for binary in os.listdir(self.package+'/sbin'):
@@ -153,123 +145,87 @@ class Recipe(GenericBaseRecipe):
       wrapper.write(content)
       wrapper.close()
       path_list.append(wrapper_location)
-      os.chmod(wrapper_location, 0744)
+      os.chmod(wrapper_location, 0700)
 
     #generate script for start stork
     if self.options['stork_server']=='local':
-     start_stork = os.path.join(self.wrapperdir, 'start_stork')
      start_bin = os.path.join(self.wrapper_sbin, 'stork_server')
-     wrapper = self.createPythonScript(start_stork,
+     wrapper = self.createPythonScript(self.options['wrapper-path'].strip(),
         '%s.configure.storkStart' % __name__,
-        dict(start_bin=start_bin,port=self.stork_port,configfile=self.rootdir+'/etc/stork_config'))
+        dict(start_bin=start_bin,
+            port=self.stork_port,
+            configfile=self.rootdir+'/etc/stork_config',
+            pid=self.options['pid']))
      path_list.append(wrapper)
     return path_list
 
 class AppSubmit(GenericBaseRecipe):
   """Submit a stork job into an existing Stork server instance"""
 
-  def download(self, url, filename=None, md5sum=None):
-    cache = os.path.join(self.options['rootdirectory'].strip(), 'tmp')
-    if not os.path.exists(cache):
-      os.mkdir(cache)
-    downloader = zc.buildout.download.Download(self.buildout['buildout'],
-                    hash_name=True, cache=cache)
-    path, _ = downloader(url, md5sum)
-    if filename:
-      name = os.path.join(cache, filename)
-      os.rename(path, name)
-      return name
-    return path
-
-  def copy_file(self, source, dest):
-    """"Copy file with source to dest with auto replace
-        return True if file has been copied and dest ha been replaced
-    """
-    result = False
-    if source and os.path.exists(source):
-      if os.path.exists(dest):
-        if filecmp.cmp(dest, source):
-          return False
-        os.unlink(dest)
-      result = True
-      shutil.copy(source, dest)
-    return result
-
-  def getFiles(self):
-    """This is used to download app files if necessary and update options values"""
-    app_list = json.loads(self.options['stork-app-list'])
-    if not app_list:
-      return None
-    for app in app_list:
-      if app_list[app].get('files', None):
-        file_list = app_list[app]['files']
-        for file in file_list:
-          if file and (file.startswith('http') or file.startswith('ftp')):
-            file_list[file] = self.download(file_list[file])
-          os.chmod(file_list[file], 0600)
-      else:
-        app_list[app]['files'] = {}
-
-      submit_file = app_list[app].get('description-file', '')
-      if submit_file and (submit_file.startswith('http') or submit_file.startswith('ftp')):
-        app_list[app]['description-file'] = self.download(submit_file, 'submit-dap')
-        os.chmod(app_list[app]['description-file'], 0600)
-
-    return app_list
-
   def install(self):
     path_list = []
+    download_dest_list = dict()
     #check if curent stork instance is an stork server
     if self.options['machine-role'].strip() == "server":
       #raise Exception("Cannot submit a job to stork client instance")
       print 'Cannot submit a job to stork client instance'
       return path_list
 
-
     #Setup directory
     datadir = self.options['data-dir'].strip()
-    if not os.path.exists(datadir):
-      os.mkdir(datadir)
-    app_list = self.getFiles()
-    for appname in app_list:
-      appdir = os.path.join(datadir, appname)
-      if not os.path.exists(appdir):
-        os.mkdir(appdir)
-      submitfile = os.path.join(appdir, 'submit-dap')
-  
-      install = self.copy_file(app_list[appname]['description-file'], submitfile)
-      sig_install = os.path.join(appdir, '.install')
-      if install:
-        with open(sig_install, 'w') as f:
-          f.write('to_install')
-      for file in app_list[appname]['files']:
-        destination = os.path.join(appdir, file)
-        if os.path.exists(destination):
-          os.unlink(destination)
-        os.symlink(app_list[appname]['files'][file], destination)
-      #generate wrapper for submitting stork job
-      #self.stork_host = self.options['ip'].strip()
-      if self.options['stork_server']!='local':
-       self.stork_host =self.options['stork_server']
-      else:
-       self.stork_host = self.options['ip'].strip()
-      self.stork_port = self.options['stork_port'].strip()
-      stork_submit = os.path.join(self.options['bin'].strip(), 'stork_submit')
-        #change default SRC and DEST URLs by user URLs
-      (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH USER REPOSITORY URL#'+self.options['src_url'].strip()+'#" '+datadir+'stork_test/submit-dap')
-      if self.options['dest_url']!='local':
-       (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH BONJOURGRID DATA REPOSITORY URL#'+self.options['dest_url'].strip()+'#" '+datadir+'stork_test/submit-dap')
-      else:
-       (error,success)=commands.getstatusoutput('sed -i "s#REPLACE WITH BONJOURGRID DATA REPOSITORY URL#'+'file:'+datadir+''+self.options['data_package'].strip()+'#" '+datadir+'stork_test/submit-dap')
+    dest_url = self.options['dest_url'].strip()
+    source_url_list = self.options['json_src_url'].strip()
+    submitfile = os.path.join(datadir, 'submit-dap')
+    if self.options['dest_url']=='local':
+      dest_url = 'file:'+datadir
+    
+    stork_submit = os.path.join(self.options['bin'].strip(), 'stork_submit')
+    file_list = '{}'
+    if str(self.options.get('src_from_file')).lower() in ['y', 'yes', '1', 'true']:
+      if os.path.exists(source_url_list):
+        with open(source_url_list, 'r') as file_source:
+          file_list = json.loads(file_source.read())
+    else:
+      file_list = json.loads(source_url_list)
+    with open(submitfile, 'w') as stork_file:
+      # XXX - Simply, we don't want to download file twice with stork,
+      #       skip file if it already exists at dest_url (only for file:path)
+      for filename in file_list:
+        download_name = filename
+        if dest_url.startswith('file:'):
+          destination = os.path.join(dest_url.replace('file:', ''), filename)
+          if os.path.exists(destination+'_part') or os.path.exists(destination):
+            continue
+          download_dest_list[filename] = destination
+          download_name = filename + '_part'
+        stork_file.write("""[
+src_url="%s";
+dest_url="%s/%s";
+err = "%s.err";
+output = "%s.out";
+dap_type = "transfer";
+set_permission = "600" ;
+]
 
-      parameter = dict(submit=stork_submit, sig_install=sig_install,
-                      submit_file=submitfile,
-                      stork_server=self.stork_host,
-                      server_port=self.stork_port,
-                      appname=appname, appdir=appdir)
-      submit_job = self.createPythonScript(
-        os.path.join(self.options['wrapper-dir'].strip(), appname),
-        '%s.configure.submitJob' % __name__, parameter
-      )
-      path_list.append(submit_job)
+""" % (file_list[filename], dest_url, download_name, filename, filename)
+          )
+  
+    parameter = dict(submit=stork_submit,
+                    submit_file=submitfile,
+                    stork_server=self.options['ipv4'].strip(),
+                    server_port=self.options['stork_port'].strip(),
+                    datadir=datadir)
+    submit_job = self.createPythonScript(
+      self.options['wrapper-path'].strip(),
+      '%s.configure.submitJob' % __name__, parameter
+    )
+    path_list.append(submit_job)
+    
+    check_job = self.createPythonScript(
+      self.options['wrapper-check'].strip(),
+      '%s.configure.checkDownloadStatus' % __name__,
+      dict(dest_list=download_dest_list, cwd=self.options['log'])
+    )
+    path_list.append(check_job)
+    
     return path_list
