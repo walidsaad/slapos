@@ -46,10 +46,10 @@ def putData(args):
     print 'BEGIN PUT',datetime.datetime.now();
     os.environ['CLASSPATH'] =bitdew
     print os.environ['CLASSPATH']
-    ########log=data_dir+'/put.log'
-    log='/tmp/put.log'
+    log=data_dir+'/put.log'
+    #log='/tmp/put.log'
     cmd=java_bin+"/java -cp "+bitdew+" xtremweb.role.cmdline.CommandLineTool --protocol="+protocol+" --host="+host+" put "+file_name+" >>"+log
-    cmd1="echo "+host+" >>/tmp/server"
+    cmd1="echo "+host+" >>"+data_dir+"/server"
     os.system(cmd1)
     time.sleep(20)
     os.system(cmd)
